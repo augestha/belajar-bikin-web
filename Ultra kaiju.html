@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaiju Tactic - Fixed Layout</title>
+    <style>
+        body { 
+            background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; margin: 0; 
+            padding-bottom: 280px; overflow-x: hidden;
+        }
+        
+        #draftOverlay {
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: #0d1117; z-index: 9999; display: flex; flex-direction: column; 
+            align-items: center; padding: 10px;
+        }
+        
+        #draftContainer {
+            display: flex; width: 98%; height: 80vh; gap: 15px; margin-top: 10px;
+        }
+
+        .side-panel {
+            flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+            display: flex; flex-direction: column; padding: 10px; overflow-y: auto;
+        }
+
+        .ban-list {
+            height: 120px; border-bottom: 2px dashed #30363d; margin-bottom: 10px;
+            display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; align-content: flex-start;
+        }
+        .ban-item {
+            width: 45px; height: 45px; border: 2px solid #f85149; border-radius: 4px;
+            position: relative; background: #0d1117; overflow: hidden;
+        }
+        .ban-item img { width: 100%; height: 100%; object-fit: contain; filter: grayscale(1); }
+        .ban-item::after {
+            content: "✕"; position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(248, 81, 73, 0.4); color: white; display: flex;
+            justify-content: center; align-items: center; font-weight: bold; font-size: 1.2em;
+        }
+
+        #draftPool {
+            flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px; padding: 15px; background: #0d1117; border: 1px solid #30363d; 
+            border-radius: 12px; overflow-y: auto; align-content: start;
+        }
+
+        .draft-card {
+            background: #161b22; border: 2px solid #30363d; border-radius: 8px;
+            padding: 5px; text-align: center; cursor: pointer; transition: 0.2s;
+            font-size: 0.85em; display: flex; flex-direction: column; justify-content: space-between; height: 140px;
+            position: relative;
+        }
+        .draft-card:hover { border-color: white; transform: scale(1.05); }
+        .draft-card img { 
+            width: 100%; height: 100px; object-fit: contain; background: #0d1117; border-radius: 4px; margin-bottom: 2px;
+        }
+        .draft-card b { display: block; line-height: 1.2; margin-top: auto; }
+        .draft-card.picked { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
+
+        .tag-penyerang { color: #f85149; }
+        .tag-kecepatan { color: #58a6ff; }
+        .tag-bertahan { color: #3fb950; }
+        .tag-kegelapan { color: #bc00ff; }
+
+        .pick-item {
+            display: flex; align-items: center; gap: 10px; background: #0d1117;
+            margin-bottom: 8px; padding: 5px; border-radius: 6px; border-left: 4px solid;
+        }
+        .pick-item img { width: 40px; height: 40px; border-radius: 4px; object-fit: contain; background: #0d1117; }
+
+        #draftStatus { font-size: 1.2em; font-weight: bold; margin: 5px; padding: 8px 40px; border-radius: 30px; text-transform: uppercase; }
+
+        #calcHeader { width: 100%; min-height: 150px; background: #161b22; border-bottom: 2px solid #30363d; display: flex; justify-content: center; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .calc-box { display: none; align-items: center; gap: 20px; padding: 15px; background: #0d1117; border: 1px solid #58a6ff; border-radius: 8px; width: 95%; max-width: 1100px; }
+        .vs-unit { text-align: center; width: 120px; }
+        .vs-unit img { width: 60px; height: 60px; border-radius: 5px; border: 2px solid #30363d; background: #161b22; object-fit: contain; }
+        .vs-info { flex-grow: 1; display: flex; flex-direction: column; gap: 3px; font-size: 0.8em; border-left: 1px solid #30363d; border-right: 1px solid #30363d; padding: 0 15px; }
+        #phaseBanner { padding: 8px 30px; font-weight: bold; margin: 20px 0; border-radius: 20px; font-size: 1em; }
+        .player-phase { background: #1f6feb; color: white; box-shadow: 0 0 15px #1f6feb; }
+        .enemy-phase { background: #da3633; color: white; box-shadow: 0 0 15px #da3633; }
+        .ban-phase { background: #6e1f1f; color: white; box-shadow: 0 0 15px #f85149; }
+
+        canvas { border: 3px solid #30363d; background-color: #0d1117; cursor: crosshair; }
+        
+        #footer { position: fixed; bottom: 0; width: 100%; background: #161b22; border-top: 2px solid #30363d; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; z-index: 1000; box-sizing: border-box; height: 260px; }
+        
+        .roster-display { width: 180px; display: flex; flex-direction: column; gap: 5px; font-size: 0.75em; height: 100%; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 8px; border: 1px solid #30363d; }
+        .roster-display h4 { margin: 0 0 5px 0; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 3px; }
+        .roster-mini-card { display: flex; align-items: center; gap: 8px; background: #0d1117; padding: 4px; border-radius: 4px; border-left: 3px solid; margin-bottom: 2px; }
+        .roster-mini-card img { width: 30px; height: 30px; object-fit: contain; border-radius: 2px; background: #161b22; }
+
+        #unitDisplay { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #uMainInfo { display: flex; align-items: center; gap: 15px; }
+        #uAvatar { width: 60px; height: 60px; border: 2px solid #30363d; border-radius: 8px; overflow: hidden; background: #0d1117; }
+        #uAvatar img { width: 100%; height: 100%; object-fit: contain; }
+        #unitStats { display: flex; gap: 5px; font-size: 0.7em; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+        .stat-item { background: #21262d; padding: 5px 8px; border-radius: 6px; border: 1px solid #30363d; min-width: 80px; text-align: center; }
+        
+        #controls { display: flex; gap: 10px; margin-top: 5px; }
+        .btn { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 8px 15px; cursor: pointer; border-radius: 6px; font-weight: 600; font-size: 0.9em; }
+        #dodgePop { position: absolute; color: #f1c40f; font-weight: 900; font-size: 2em; text-shadow: 2px 2px #000; pointer-events: none; display: none; z-index: 2000; }
+    </style>
+</head>
+<body>
+
+    <div id="draftOverlay">
+        <h2 style="margin: 5px; color: #c9d1d9;">KAIJU TACTIC DRAFT & BAN</h2>
+        <div id="draftStatus" class="player-phase">PLAYER TURN: BAN 1</div>
+        <div id="draftContainer">
+            <div id="playerSide" class="side-panel">
+                <h4 style="color: #f85149; text-align: center; margin: 0 0 5px 0;">PLAYER BAN</h4>
+                <div id="playerBans" class="ban-list"></div>
+                <h3 style="color: #58a6ff; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px;">PLAYER TEAM</h3>
+                <div id="playerPicks"></div>
+            </div>
+            
+            <div id="draftPool"></div>
+            
+            <div id="enemySide" class="side-panel">
+                <h4 style="color: #f85149; text-align: center; margin: 0 0 5px 0;">ENEMY BAN</h4>
+                <div id="enemyBans" class="ban-list"></div>
+                <h3 style="color: #f85149; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 5px;">ENEMY TEAM</h3>
+                <div id="enemyPicks"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dodgePop">DODGE!</div>
+
+    <div id="calcHeader">
+        <div id="battleCalc" class="calc-box">
+            <div class="vs-unit"><img id="atkImg" src=""><br><span id="atkTypeTag" class="type-tag"></span><br><b id="atkNameDisplay"></b></div>
+            <div style="font-size: 1.2em; font-weight: bold; color: #8b949e;">VS</div>
+            <div class="vs-unit"><img id="defImg" src=""><br><span id="defTypeTag" class="type-tag"></span><br><b id="defNameDisplay"></b></div>
+            <div class="vs-info">
+                <div>Base Atk: <span id="calcBase"></span></div>
+                <div>Type Mod: <span id="calcMod"></span></div>
+                <div>Chain Bonus (1.2x): <span id="calcChain" style="color:#58a6ff"></span></div>
+                <div>Target Defense: <span id="calcDef" style="color:#f85149"></span></div>
+                <div style="border-top: 1px solid #30363d; margin-top: 5px; padding-top: 5px;">
+                    <b>Total Damage: <span id="calcFinal" style="color:#3fb950"></span></b><br>
+                    <small>Dodge Chance: <span id="calcDodge" style="color:#f1c40f"></span></small>
+                </div>
+            </div>
+            <div style="text-align: center; min-width: 200px; padding: 0 10px;">
+                <div style="font-size: 0.75em; color:#8b949e; margin-bottom: 5px;">ESTIMASI PERUBAHAN HP</div>
+                <div style="background: #161b22; padding: 10px; border-radius: 6px; border: 1px solid #30363d;"><span id="hpBefore" style="color:#c9d1d9"></span> ➔ <span id="hpAfter" style="color:#f85149; font-weight:bold;"></span></div>
+                <div style="margin-top: 10px; display: flex; justify-content: center; gap: 5px;">
+                    <kbd style="background:#238636; color: white; padding:2px 8px; border-radius:4px; font-size: 0.8em;">Y Confirm</kbd>
+                    <kbd style="background:#da3633; color: white; padding:2px 8px; border-radius:4px; font-size: 0.8em;">N Cancel</kbd>
+                </div>
+            </div>
+        </div>
+        <div id="idleMsg" style="color: #8b949e; font-size: 1.1em;">ARENA SIAP | PILIH UNIT UNTUK BERTINDAK</div>
+    </div>
+
+    <div id="phaseBanner" class="player-phase">PLAYER TURN</div>
+    <canvas id="gameCanvas" width="1000" height="500"></canvas>
+
+    <div id="footer">
+        <div id="playerRosterList" class="roster-display">
+            <h4 style="color: #58a6ff;">PLAYER ROSTER</h4>
+        </div>
+
+        <div id="unitDisplay">
+            <div id="uMainInfo">
+                <div id="uAvatar"><img id="avatarImg" src="" alt=""></div>
+                <div style="text-align: center;">
+                    <b id="uName" style="font-size: 1.2em;">-</b><br>
+                    <span id="uType" class="type-tag" style="padding: 2px 10px; border-radius: 4px; font-size: 0.8em;">-</span>
+                </div>
+            </div>
+            <div id="unitStats">
+                <div class="stat-item">HP<br><b id="uHp">-</b></div>
+                <div class="stat-item">DEF<br><b id="uDef">-</b></div>
+                <div class="stat-item">DODGE<br><b id="uDodge" style="color:#f1c40f">-</b></div>
+                <div class="stat-item">MOVE<br><b id="uSpd" style="color:#58a6ff">-</b></div>
+                <div class="stat-item">BA RNG/DMG<br><b id="uBA">-</b> (<b id="uBADmg" style="color:#f85149">-</b>)</div>
+                <div class="stat-item">SPEC RNG/DMG<br><b id="uS">-</b> (<b id="uSDmg" style="color:#f85149">-</b>)</div>
+                <div class="stat-item">AOE<br><b id="uAoe" style="color:#f1c40f">-</b></div>
+                <div class="stat-item">SP<br><b id="uSp" style="color:#d2a8ff">-</b></div>
+            </div>
+            <div id="controls">
+                <button id="btnMove" class="btn" onclick="setMode('MOVE')">MOVE</button>
+                <button id="btnAtk" class="btn" onclick="setMode('ATK')">ATTACK</button>
+                <button id="btnSpec" class="btn" style="border-color:#d2a8ff" onclick="setMode('SPEC')">SPECIAL</button>
+                <button class="btn" style="background:#30363d" onclick="setWait()">WAIT</button>
+            </div>
+        </div>
+
+        <div id="enemyRosterList" class="roster-display">
+            <h4 style="color: #f85149;">ENEMY ROSTER</h4>
+        </div>
+    </div>
+
+<script>
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(freq, type, duration) {
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+
+const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d'); const size = 50;
+const TYPE_COLORS = { "penyerang": "#f85149", "bertahan": "#3fb950", "kecepatan": "#58a6ff", "kegelapan": "#bc00ff" };
+
+function Unit(name, type, hp, ba, def, spd, minBa, maxBa, mins, maxs, aoe, dodge, sdmg, imgUrl) {
+    this.name = name; this.type = type;
+    this.hp = hp; this.maxHp = hp; this.atk = ba; this.def = def; this.spd = spd;
+    this.minBA = minBa; this.maxBA = maxBa; this.minS = mins; this.maxS = maxs;
+    this.aoe = aoe; this.dodge = dodge; this.sDmg = sdmg; this.imgUrl = imgUrl;
+    this.sp = 0; this.done = false; this.avatar = new Image(); this.avatar.src = imgUrl;
+}
+
+const poolKarakter = [
+    new Unit('Bemular', 'penyerang', 2000, 700, 100, 3, 1, 1, 1, 3, 1, 10, 1500, 'https://th.bing.com/th/id/OIP.oAHn8lnQeq9x6ClYKF-nVQAAAA?w=115&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Baltan', 'kecepatan', 1700, 500, 50, 5, 1, 2, 2, 3, 1, 30, 2000, 'https://th.bing.com/th/id/OIP.HNL_IXan8mSo6y_N_GFoAAHaH5?w=205&h=219&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Neronga', 'bertahan', 2500, 500, 200, 3, 2, 2, 1, 3, 1, 10, 1000, 'https://tse3.mm.bing.net/th/id/OIP.NOykOwJgDUK03ghbwYmfdQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Gomora', 'penyerang', 2000, 700, 150, 3, 1, 1, 1, 3, 0, 10, 1800, 'https://th.bing.com/th/id/OIP.hHuIj-pJfO8FmN5VQcUA5wHaHc?w=161&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Redking', 'penyerang', 2000, 500, 180, 3, 1, 1, 1, 2, 0, 10, 1700, 'https://th.bing.com/th/id/OIP.sO3lYN4VTzElnSVflr_-4AHaMl?w=115&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Bulton', 'bertahan', 2500, 400, 200, 3, 2, 2, 1, 2, 0, 35, 1200, 'https://th.bing.com/th/id/OIP.5LFSKAbG3cKXJ45QE6gVhAAAAA?w=159&h=137&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Baltan 2', 'kecepatan', 1000, 1000, 10, 6, 2, 3, 2, 4, 0, 45, 1900, 'https://tse4.mm.bing.net/th/id/OIP.k_E2HHRh4H2rNUcllSIACQHaFj?pid=ImgDet&w=194&h=145&c=7&o=7&rm=3'),
+    new Unit('Zarab', 'bertahan', 2400, 400, 250, 3, 1, 1, 1, 3, 1, 10, 1500, 'https://th.bing.com/th/id/OIP.tzUGnbNXmw7hUBFHcFCp9gHaLH?w=115&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Fake Ultraman', 'bertahan', 2700, 300, 100, 3, 1, 1, 1, 2, 0, 40, 1500, 'https://th.bing.com/th/id/OIP.t4L1mJsorjvXBofl11FqxgHaFT?w=250&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Geronimon', 'penyerang', 2000, 650, 100, 3, 2, 2, 2, 3, 2, 20, 1700, 'https://tse1.mm.bing.net/th/id/OIP.cID-QQlR1fl7PEnHhky4cQHaFg?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Mephilas', 'kecepatan', 1500, 500, 100, 4, 1, 1, 1, 3, 0, 35, 1800, 'https://vignette.wikia.nocookie.net/ultra/images/3/3c/Mephilas_mebius.png/revision/latest?cb=20110829224615'),
+    new Unit('Zetton', 'kecepatan', 2000, 500, 100, 3, 1, 1, 1, 2, 1, 40, 2000, 'https://th.bing.com/th/id/OIP.Ky_R17grJduJbmYBa5GIKgAAAA?o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('eleking', 'penyerang', 2100, 600, 100, 3, 1, 1, 1, 3, 1, 10, 1750, 'https://vignette.wikia.nocookie.net/ultramonsters/images/5/5a/ElekingGeed2017.jpg/revision/latest?cb=20171027033751'),
+    new Unit('King Joe', 'bertahan', 2700, 250, 200, 3, 1, 1, 1, 2, 1, 10, 1500, 'https://tse2.mm.bing.net/th/id/OIP.1bW8h-xeMpQNIjY5rUqEvwAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Pandon', 'penyerang', 2100, 450, 100, 3, 1, 1, 1, 3, 2, 15, 1750, 'https://tsuburaya-prod.com/wp-content/uploads/2022/10/SEVEN_Mon_66.jpg'),
+    new Unit('Robot Ultra Seven', 'bertahan', 2500, 350, 200, 3, 1, 1, 1, 2, 1, 20, 1500, 'https://vignette.wikia.nocookie.net/ultra/images/4/40/Robot_Ultraseven.png/revision/latest/scale-to-width-down/250?cb=20180226084821&path-prefix=id'),
+    new Unit('Metron', 'kecepatan', 1500, 600, 90, 4, 2, 2, 1, 3, 0, 25, 1800, 'https://tse2.mm.bing.net/th/id/OIP.EJqRMn5JpI0Jq3Yzn2VZ4AHaKX?pid=ImgDet&w=191&h=267&c=7&o=7&rm=3'),
+    new Unit('Guts', 'kecepatan', 1350, 500, 100, 4, 2, 2, 1, 3, 0, 25, 1800, 'https://tse2.mm.bing.net/th/id/OIP.ep34bYRf-AS7Og-xqDkYxgHaIG?pid=ImgDet&w=191&h=208&c=7&o=7&rm=3'),
+    new Unit('Twintail', 'bertahan', 2700, 250, 100, 3, 1, 1, 1, 2, 0, 10, 1500, 'https://tse2.mm.bing.net/th/id/OIP.J08bDT4y4cA1xAB1-u_W8gHaKV?pid=ImgDet&w=191&h=265&c=7&o=7&rm=3'),
+    new Unit('Gudon', 'penyerang', 2100, 600, 100, 3, 1, 1, 1, 2, 0, 10, 1750, 'https://tse1.mm.bing.net/th/id/OIP.2lbUacNAWv-2CtEa2flUhQHaJH?pid=ImgDet&w=191&h=235&c=7&o=7&rm=3'),
+    new Unit('Black King', 'penyerang', 2100, 600, 100, 3, 1, 1, 1, 3, 2, 10, 1750, 'https://vignette.wikia.nocookie.net/ultra/images/9/95/Black_King.png/revision/latest?cb=20180501130005&path-prefix=id'),
+    new Unit('knuckle', 'kecepatan', 1500, 400, 100, 5, 1, 1, 1, 3, 0, 25, 1700, 'https://tse2.mm.bing.net/th/id/OIP.f7fELZt32VIYEJAgSyzldAAAAA?pid=ImgDet&w=191&h=310&c=7&o=7&rm=3'),
+    new Unit('Velokron', 'penyerang', 2000, 500, 100, 3, 2, 2, 1, 3, 1, 15, 1700, 'https://tse2.mm.bing.net/th/id/OIP.-iA-5L_QCB3BsIBo33yw4wAAAA?pid=ImgDet&w=177&h=206&c=7&o=7&rm=3'),
+    new Unit('Ace Killer', 'penyerang', 2000, 700, 150, 3, 1, 1, 1, 3, 1, 10, 1800, 'https://www.bing.com/th/id/OIP.52sfuCfs8oPTOD8Epbu4kQAAAA?w=188&h=262&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2'),
+    new Unit('Ace Robot', 'penyerang', 2500, 600, 250, 3, 1, 1, 1, 3, 0, 0, 1800, 'https://vignette.wikia.nocookie.net/ultra/images/b/bc/Ace_Robott.png/revision/latest/scale-to-width-down/218?cb=20200114025724'),
+    new Unit('Yaapol', 'penyerang', 2200, 600, 100, 3, 1, 1, 1, 3, 2, 15, 1820, 'https://th.bing.com/th/id/OIP.S5w7nsduRMkAxnEb767P5wHaLH?w=184&h=276&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Hipporiton', 'kecepatan', 1500, 700, 90, 4, 1, 1, 2, 3, 0, 10, 2000, 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/ca3e65e9-5231-4888-87c7-4c3c6b8df0d8/deygfu8-24ada97e-7c3f-4d4f-9928-3c3b25466f48.png/v1/fill/w_270,h_467/alien_hipporito__showa__by_dramakkomon108_deygfu8-fullview.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9NDY3IiwicGF0aCI6IlwvZlwvY2EzZTY1ZTktNTIzMS00ODg4LTg3YzctNGMzYzZiOGRmMGQ4XC9kZXlnZnU4LTI0YWRhOTdlLTdjM2YtNGQ0Zi05OTI4LTNjM2IyNTQ2NmY0OC5wbmciLCJ3aWR0aCI6Ijw9MjcwIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmltYWdlLm9wZXJhdGlvbnMiXX0.F5nCnku26VDcaexR16JcCtEpoDluspw8noJ1_WToQ8w'),
+    new Unit('Tyrant', 'penyerang', 2500, 450, 200, 3, 1, 1, 1, 3, 0, 15, 1850, 'https://i.pinimg.com/736x/48/8a/6c/488a6cb3ec7b70410b56106acd745d08.jpg'),
+    new Unit('Magma', 'kecepatan', 1600, 400, 100, 5, 1, 1, 1, 3, 1, 15, 1650, 'https://tse1.mm.bing.net/th/id/OIP.RPHzlaxmtrmMYYHwRDW_TAHaJ7?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Barbaru', 'bertahan', 2400, 400, 250, 3, 1, 1, 1, 3, 0, 30, 1500, 'https://tse1.mm.bing.net/th/id/OIP._bxA9-28mexbe2gZIHNkiQHaK4?pid=ImgDet&w=194&h=285&c=7&o=7&rm=3'),
+    new Unit('Fake Astra', 'bertahan', 2100, 100, 100, 2, 1, 1, 5, 40, 60, 0, 1500, 'https://cdn.suruga-ya.jp/database/pics_light/game/601015021.jpg'),
+    new Unit('Delusion Seven', 'bertahan', 1600, 400, 100, 3, 1, 1, 1, 3, 0, 15, 1550, 'https://tse3.mm.bing.net/th/id/OIP.tORokCCTce9fFZLy_fvJgAHaIB?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Ultraman Shadow', 'penyerang', 2000, 700, 100, 3, 1, 1, 1, 3, 1, 15, 1850, 'https://tse2.mm.bing.net/th/id/OIP.OqXyLls47lY7U7MdC1FLGwHaJ0?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Golza', 'penyerang', 2100, 700, 100, 3, 1, 1, 1, 3, 1, 10, 1600, 'https://tsuburaya-prod.com/wp-content/uploads/2023/04/Golza_list.jpg'),
+    new Unit('Melba', 'kecepatan', 1300, 700, 100, 8, 2, 3, 2, 5, 0, 10, 1200, 'https://tsuburaya-prod.com/wp-content/uploads/2023/04/Melba_list.jpg'),
+    new Unit('Kyrieloid', 'kecepatan', 2000, 600, 100, 6, 1, 1, 1, 3, 1, 40, 1700, 'https://th.bing.com/th/id/OIP.Q_LvjNEWUbI6b9aDDU0a6AAAAA?w=184&h=245&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('kyrieloid ii', 'bertahan', 2200, 700, 200, 6, 1, 1, 1, 2, 0, 40, 1500, 'https://th.bing.com/th/id/OIP.rPlCwoSJCA9rcKfGOSZpmQHaLH?w=184&h=276&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Evil Tiga', 'kecepatan', 2000, 700, 100, 5, 2, 2, 1, 3, 1, 30, 1800, 'https://tse3.mm.bing.net/th/id/OIP.LUI7L5UfweTp7nWN462mdwHaFj?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Gatanozoa', 'kegelapan', 3000, 400, 100, 1, 5, 15, 1, 3, 1, 0, 2500, 'https://tse3.mm.bing.net/th/id/OIP.LpfsaiwL1Dm2_-QWydb3gQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Carmearra', 'bertahan', 2500, 600, 200, 3, 1, 2, 1, 3, 1, 20, 1600, 'https://tse3.mm.bing.net/th/id/OIP.cfDr_fbtJzIFJlff0KdSrgAAAA?pid=ImgDet&w=141&h=350&c=7&o=7&rm=3'),
+    new Unit('Hudra', 'kecepatan', 1900, 800, 80, 5, 2, 2, 1, 3, 1, 30, 1600, 'https://th.bing.com/th/id/OIP.nJtTJPzVFHLeRIMKx0MHbwHaE_?w=247&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Darramb', 'penyerang', 2100, 750, 150, 3, 1, 1, 1, 3, 1, 20, 1600, 'https://tse2.mm.bing.net/th/id/OIP.l4JmqtCVXzNuJyNGBPC9tQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Dark Tiga', 'penyerang', 2200, 750, 100, 3, 1, 1, 1, 3, 1, 20, 1700, 'https://tse2.mm.bing.net/th/id/OIP.GHBB3IpHelJ-wX4UaHzjXgAAAA?pid=ImgDet&w=191&h=316&c=7&o=7&rm=3'),
+    new Unit('Reigubas', 'bertahan', 2000, 550, 150, 3, 1, 1, 1, 3, 1, 10, 1500, 'https://tse4.mm.bing.net/th/id/OIP.gLxjOLludhIVMlhlqWUmQQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Fake Dyna', 'kecepatan', 1800, 750, 100, 6, 1, 1, 1, 3, 1, 20, 1700, 'https://preview.redd.it/p988gjoklyu61.jpg?width=1436&format=pjpg&auto=webp&s=3819bbe12fdeeaa13aaf302e5a9cb009e636d90e'),
+    new Unit('Dyna Teranoid', 'penyerang', 2000, 650, 150, 3, 1, 1, 1, 3, 1, 20, 1600, 'https://tse2.mm.bing.net/th/id/OIP.7VX8yNH7PYKa_tfNdablJAHaHa?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Queen Monera', 'Kegelapan', 3000, 650, 650, 1, 1, 9, 1, 9, 2, 0, 1600, 'https://th.bing.com/th/id/OIP.QDGWKsZAbcKkrQevDXVb5gHaEK?w=321&h=180&c=7&r=0&o=7&pid=1.7&rm=3'),
+    new Unit('Deathfacer', 'penyerang', 2100, 750, 120, 3, 2, 2, 2, 3, 1, 20, 1800, 'https://tse3.mm.bing.net/th/id/OIP.OZoLtAlQE9-IOVrE-_tQzgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Gan Q', 'penyerang', 1700, 550, 150, 3, 1, 1, 1, 3, 0, 20, 1800, 'https://tsuburaya-prod.com/wp-content/uploads/2019/12/ganq2.jpg'),
+    new Unit('Super COV', 'penyerang', 2800, 750, 150, 3, 1, 1, 1, 3, 1, 20, 1600, 'https://tse1.mm.bing.net/th/id/OIP.HM2v4km-SJ_ajA1EurboAgHaKj?pid=ImgDet&w=191&h=272&c=7&o=7&rm=3'),
+    new Unit('Fake Gaia', 'penyerang', 2100, 650, 150, 4, 1, 1, 1, 3, 1, 20, 1650, 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/ca3e65e9-5231-4888-87c7-4c3c6b8df0d8/dfwyxa4-4ff5bcd7-ecc7-4036-9d2d-c08b4573120b.png/v1/fill/w_174,h_350/imit_ultraman_gaia__turning__by_dramakco_mon108_dfwyxa4-350t.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9Njc3IiwicGF0aCI6IlwvZlwvY2EzZTY1ZTktNTIzMS00ODg4LTg3YzctNGMzYzZiOGRmMGQ4XC9kZnd5eGE0LTRmZjViY2Q3LWVjYzctNDAzNi05ZDJkLWMwOGI0NTczMTIwYi5wbmciLCJ3aWR0aCI6Ijw9MzM3In1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmltYWdlLm9wZXJhdGlvbnMiXX0.JQYTvnVnk-CucujKYhOa602ONXcmfCknTg3CKuCfkwY'),
+    new Unit('Fake Agul', 'kecepatan', 1700, 850, 80, 8, 1, 2, 1, 3, 1, 40, 1800, 'https://tse4.mm.bing.net/th/id/OIP.km8swhOmcCeYQJi_f7RoUQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Zogu Angel', 'kegelapan', 3000, 550, 150, 4, 1, 9, 1, 3, 1, 20, 1900, 'https://tse3.mm.bing.net/th/id/OIP.b48QWBCVtGTo5ySctqRtaQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Zogu', 'kegelapan', 4000, 550, 100, 1, 3, 12, 3, 12, 12, 0, 2000, 'https://beritanasional.com/storage/gambar/ckeditor/zog_1726676304.jpeg'),
+    new Unit('The one', 'penyerang', 2500, 550, 150, 3, 1, 2, 1, 3, 1, 0, 2000, 'https://tse4.mm.bing.net/th/id/OIP.XtWYP5k-gGj5b8JVbxDG7AAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Dark faust', 'kecepatan', 1500, 750, 50, 9, 2, 2, 1, 3, 1, 40, 1800, 'https://tse3.mm.bing.net/th/id/OIP.6d-fV1-w5BWdNBrsDUe_wwHaLM?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Dark Mephisto', 'penyerang', 2100, 550, 150, 4, 1, 1, 1, 3, 1, 20, 1600, 'https://i.pinimg.com/736x/fb/ef/2d/fbef2d43cb768ed843b9125d28f7556e.jpg'),
+    new Unit('Dark Mephisto Zwei', 'bertahan', 2100, 450, 150, 4, 1, 2, 1, 4, 3, 30, 1500, 'https://vignette.wikia.nocookie.net/ultra/images/9/98/Dark_Mephisto_Zwei.png/revision/latest?cb=20180305093207&path-prefix=id'),
+    new Unit('Dark Zagi', 'kegelapan', 2100, 750, 150, 5, 1, 1, 1, 3, 1, 30, 2500, 'https://tse4.mm.bing.net/th/id/OIP.IpST8Hu9CsD8rvTUgFI1OgHaLH?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Chaos ultraman', 'kecepatan', 2100, 750, 150, 3, 1, 1, 1, 3, 1, 20, 1600, 'https://tse2.mm.bing.net/th/id/OIP.Sf9R6UpJR2t14cglSxStqgHaFj?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Chaos clamity', 'penyerang', 2100, 750, 150, 3, 1, 1, 1, 3, 1, 20, 1600, 'https://tse4.mm.bing.net/th/id/OIP.H9IUU1-WHOsNG5hyl67JiQAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Chaos Darkness', 'kegelapan', 3300, 550, 150, 5, 1, 1, 1, 3, 1, 20, 2100, 'https://tse2.mm.bing.net/th/id/OIP.e1F-irw61R8jkA476jhadgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Grozam', 'kecepatan', 2000, 750, 150, 5, 1, 1, 1, 3, 1, 30, 1600, 'https://i.pinimg.com/736x/7b/14/84/7b14841c7401d3529d94ea06e2778e09.jpg'),
+    new Unit('Deathrem', 'penyerang', 2000, 700, 200, 3, 1, 1, 1, 3, 2, 30, 1600, 'https://tse3.mm.bing.net/th/id/OIP.ITOZraiR0TA11rKPNFvKTgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Temperor', 'penyerang', 1900, 650, 150, 4, 1, 2, 1, 3, 1, 30, 1800, 'https://tse3.mm.bing.net/th/id/OIP.BvY3rB42lsTWF7BeLTg8sAHaJl?w=640&h=828&rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Emperar', 'kegelapan', 2900, 950, 250, 3, 1, 1, 1, 3, 1, 20, 2600, 'https://tse4.mm.bing.net/th/id/OIP.YWvl9aDcOaSHD_HCTTtw5QAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('mebius killer', 'penyerang', 2000, 750, 150, 3, 1, 1, 1, 3, 1, 20, 1700, 'https://tse1.mm.bing.net/th/id/OIP.KukoQoXU4WGtheGq0y6u5AAAAA?rs=1&pid=ImgDetMain&o=7&rm=3'),
+    new Unit('Armor mephilas', 'bertahan', 2000, 550, 250, 4, 1, 2, 1, 3, 0, 20, 1550, 'https://i.pinimg.com/originals/8b/ec/6c/8bec6c3efc130cff62935414b91dd9d9.png'),
+    new Unit('Belial', 'kegelapan', 3100, 850, 150, 5, 1, 1, 1, 3, 1, 30, 2000, 'https://tsuburaya-prod.com/wp-content/uploads/2019/12/berial2.jpg'),
+    new Unit('Darklops zero', 'kecepatan', 1900, 750, 90, 5, 1, 1, 1, 3, 1, 30, 1600, 'https://tsuburaya-prod.com/wp-content/uploads/2025/04/%E3%83%80%E3%83%BC%E3%82%AF%E3%83%AD%E3%83%97%E3%82%B9%E3%82%BC%E3%83%AD.jpg'),
+    new Unit('Arc belial', 'kegelapan', 3150, 750, 150, 3, 1, 1, 1, 3, 2, 20, 2000, 'https://tsuburaya-prod.com/wp-content/uploads/2025/04/ULTRAMAN_ZERO_THE_REVENGE_OF_BELIAL.01_16_54_02.%E9%9D%99%E6%AD%A2%E7%94%BB099.jpg'),
+];
+
+let units = []; let activeUnit = null; let currentMode = 'SELECT'; let currentPhase = 'PLAYER';
+let targetTile = null; let isCalculating = false; let hoverTile = {x:-1, y:-1};
+
+let draftOrder = [
+    'BAN_P', 'BAN_E', 'BAN_P', 'BAN_E', 'BAN_P', 'BAN_E', 
+    'PICK_P', 'PICK_P', 'PICK_E', 'PICK_E',              
+    'BAN_P', 'BAN_P', 'BAN_E', 'BAN_E',                  
+    'PICK_P', 'PICK_P', 'PICK_E', 'PICK_E',              
+    'PICK_P', 'PICK_E'                                   
+];
+
+let currentDraftIdx = 0; let pCounter = 0; let eCounter = 0;
+let spawnY = [1, 3, 5, 7, 9];
+
+function initDraft() {
+    const poolDiv = document.getElementById('draftPool');
+    poolKarakter.forEach((char, idx) => {
+        const card = document.createElement('div');
+        card.className = 'draft-card';
+        card.innerHTML = `<img src="${char.imgUrl}"> <b><span class="tag-${char.type}">${char.name}</span></b>`;
+        card.onclick = () => processDraftAction(idx, card);
+        poolDiv.appendChild(card);
+    });
+    updateDraftUI();
+}
+
+function processDraftAction(idx, cardElem) {
+    if (cardElem.classList.contains('picked')) return;
+    let action = draftOrder[currentDraftIdx];
+    let sideCode = action.split('_')[1];
+    let char = poolKarakter[idx];
+
+    if (action.startsWith('BAN')) {
+        cardElem.innerHTML += `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(255,0,0,0.5);display:flex;justify-content:center;align-items:center;font-weight:bold;color:white;font-size:1.5em;z-index:10;pointer-events:none;">BAN</div>`;
+        const banPanel = document.getElementById(sideCode === 'P' ? 'playerBans' : 'enemyBans');
+        const banItem = document.createElement('div');
+        banItem.className = 'ban-item';
+        banItem.innerHTML = `<img src="${char.imgUrl}">`;
+        banPanel.appendChild(banItem);
+        playSound(150, 'sawtooth', 0.2);
+    } else {
+        let side = sideCode === 'P' ? 'PLAYER' : 'ENEMY';
+        char.side = side; 
+        char.color = side === 'PLAYER' ? '#1f6feb' : '#da3633';
+        if(side === 'PLAYER') { char.x = 1; char.y = spawnY[pCounter++]; } 
+        else { char.x = 18; char.y = spawnY[eCounter++]; }
+        units.push(char);
+        const pickList = document.getElementById(side === 'PLAYER' ? 'playerPicks' : 'enemyPicks');
+        const item = document.createElement('div');
+        item.className = 'pick-item'; item.style.borderLeftColor = TYPE_COLORS[char.type];
+        item.innerHTML = `<img src="${char.imgUrl}"> <div><b>${char.name}</b><br><small class="tag-${char.type}">${char.type}</small></div>`;
+        pickList.appendChild(item);
+        addRosterVisual(char, side === 'PLAYER' ? 'PLAYER' : 'ENEMY');
+        playSound(400 + (currentDraftIdx * 40), 'sine', 0.1);
+    }
+
+    cardElem.classList.add('picked');
+    currentDraftIdx++;
+    if (currentDraftIdx >= draftOrder.length) document.getElementById('draftOverlay').style.display = 'none';
+    else updateDraftUI();
+}
+
+function addRosterVisual(char, side) {
+    const container = document.getElementById(side === 'PLAYER' ? 'playerRosterList' : 'enemyRosterList');
+    const miniCard = document.createElement('div');
+    miniCard.className = 'roster-mini-card';
+    miniCard.style.borderLeftColor = TYPE_COLORS[char.type];
+    miniCard.innerHTML = `<img src="${char.imgUrl}"> <span>${char.name}</span>`;
+    container.appendChild(miniCard);
+}
+
+function updateDraftUI() {
+    let action = draftOrder[currentDraftIdx];
+    const status = document.getElementById('draftStatus');
+    let sideName = action.includes('_P') ? "PLAYER" : "ENEMY";
+    let typeName = action.includes('BAN') ? "BAN" : "PICK";
+    status.innerText = `${sideName} TURN: ${typeName}`;
+    if(action.includes('BAN')) status.className = 'ban-phase';
+    else status.className = sideName === 'PLAYER' ? 'player-phase' : 'enemy-phase';
+}
+
+function getTypeMultiplier(a, d) {
+    if (a === 'kegelapan' && d !== 'kegelapan') return 1.2;
+    if (d === 'kegelapan' && a !== 'kegelapan') return 0.8;
+    const r = { 'penyerang': { 'bertahan': 1.1, 'kecepatan': 0.85 }, 'bertahan': { 'kecepatan': 1.1, 'penyerang': 0.85 }, 'kecepatan': { 'penyerang': 1.1, 'bertahan': 0.85 } };
+    return (r[a] && r[a][d]) ? r[a][d] : 1.0;
+}
+function getChainBonus(target) { return units.filter(u => u.side === activeUnit.side && u !== activeUnit && getDist(u, target) === 1).length > 0 ? 1.2 : 1.0; }
+
+function showCalculation() {
+    const target = units.find(u => u.x === targetTile.x && u.y === targetTile.y && u.side !== activeUnit.side);
+    if (!target) return cancelAction();
+    document.getElementById('battleCalc').style.display = 'flex';
+    document.getElementById('idleMsg').style.display = 'none';
+    document.getElementById('atkImg').src = activeUnit.imgUrl; document.getElementById('defImg').src = target.imgUrl;
+    document.getElementById('atkNameDisplay').innerText = activeUnit.name; document.getElementById('defNameDisplay').innerText = target.name;
+    const aTag = document.getElementById('atkTypeTag'); aTag.innerText = activeUnit.type; aTag.style.background = TYPE_COLORS[activeUnit.type];
+    const dTag = document.getElementById('defTypeTag'); dTag.innerText = target.type; dTag.style.background = TYPE_COLORS[target.type];
+    let base = (currentMode === 'SPEC') ? activeUnit.sDmg : activeUnit.atk;
+    let mult = getTypeMultiplier(activeUnit.type, target.type);
+    let chain = getChainBonus(target);
+    let afterChain = Math.floor(Math.floor(base * mult) * chain);
+    let finalDmg = Math.max(0, afterChain - target.def);
+    document.getElementById('calcBase').innerText = base; document.getElementById('calcMod').innerText = Math.round(mult * 100) + "%";
+    document.getElementById('calcChain').innerText = afterChain; document.getElementById('calcDef').innerText = target.def;
+    document.getElementById('calcFinal').innerText = finalDmg; document.getElementById('calcDodge').innerText = target.dodge + "%";
+    document.getElementById('hpBefore').innerText = target.hp; document.getElementById('hpAfter').innerText = Math.max(0, target.hp - finalDmg);
+}
+
+function executeAction() {
+    const target = units.find(u => u.x === targetTile.x && u.y === targetTile.y && u.side !== activeUnit.side);
+    if (target) {
+        if (Math.random() * 100 <= target.dodge) { triggerDodgeEffect(target.x, target.y); playSound(150, 'sawtooth', 0.3); } 
+        else {
+            playSound(200, 'square', 0.2);
+            if (currentMode === 'SPEC') {
+                units.forEach(u => {
+                    if (u.side !== activeUnit.side && getDist(u, targetTile) <= activeUnit.aoe) {
+                        let base = u === target ? activeUnit.sDmg : Math.floor(activeUnit.sDmg * 0.8);
+                        let f = Math.max(0, Math.floor(Math.floor(base * getTypeMultiplier(activeUnit.type, u.type)) * getChainBonus(u)) - u.def);
+                        u.hp -= f; u.sp = Math.min(50, u.sp + 20);
+                    }
+                });
+                activeUnit.sp = 0;
+            } else {
+                let f = Math.max(0, Math.floor(Math.floor(activeUnit.atk * getTypeMultiplier(activeUnit.type, target.type)) * getChainBonus(target)) - target.def);
+                target.hp -= f; target.sp = Math.min(50, target.sp + 20); activeUnit.sp = Math.min(50, activeUnit.sp + 20);
+            }
+        }
+    }
+    units = units.filter(u => u.hp > 0); cancelAction(); endTurn();
+}
+
+function triggerDodgeEffect(x, y) {
+    const pop = document.getElementById('dodgePop'); const rect = canvas.getBoundingClientRect();
+    pop.style.left = (rect.left + x * size) + "px"; pop.style.top = (rect.top + y * size) + "px";
+    pop.style.display = 'block'; setTimeout(() => { pop.style.display = 'none'; }, 1000);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#161b22"; for(let x=0; x<20; x++) for(let y=0; y<10; y++) ctx.strokeRect(x*size, y*size, size, size);
+    if (activeUnit && !activeUnit.done && activeUnit.side === currentPhase) {
+        if (currentMode === 'MOVE') drawOverlay(activeUnit.x, activeUnit.y, activeUnit.spd, "rgba(88,166,255,0.1)");
+        if (currentMode === 'ATK') drawIntervalOverlay(activeUnit.x, activeUnit.y, activeUnit.minBA, activeUnit.maxBA, "rgba(248,81,73,0.1)");
+        if (currentMode === 'SPEC') {
+            drawIntervalOverlay(activeUnit.x, activeUnit.y, activeUnit.minS, activeUnit.maxS, "rgba(210,168,255,0.1)");
+            if (!isCalculating) { let d = getDist(hoverTile, activeUnit); if (d >= activeUnit.minS && d <= activeUnit.maxS) drawOverlay(hoverTile.x, hoverTile.y, activeUnit.aoe, "rgba(241, 196, 15, 0.4)", true); }
+        }
+    }
+    if (isCalculating && currentMode === 'SPEC') drawOverlay(targetTile.x, targetTile.y, activeUnit.aoe, "rgba(241, 196, 15, 0.5)", true);
+    units.forEach(u => {
+        ctx.save(); if (u.done) ctx.globalAlpha = 0.3;
+        ctx.fillStyle = "#161b22"; ctx.fillRect(u.x*size+5, u.y*size+5, size-10, size-10);
+        if (u.avatar.complete) ctx.drawImage(u.avatar, u.x*size+7, u.y*size+7, size-14, size-24);
+        ctx.fillStyle = "#30363d"; ctx.fillRect(u.x*size+7, u.y*size+38, size-14, 6);
+        ctx.fillStyle = "#f85149"; ctx.fillRect(u.x*size+7, u.y*size+38, (size-14)*(u.hp/u.maxHp), 3);
+        ctx.fillStyle = "#bc00ff"; ctx.fillRect(u.x*size+7, u.y*size+41, (size-14)*(u.sp/50), 3);
+        ctx.strokeStyle = (activeUnit === u && !u.done) ? "white" : u.color; ctx.lineWidth = (activeUnit === u) ? 3 : 2;
+        ctx.strokeRect(u.x*size+6, u.y*size+6, size-12, size-12); ctx.restore();
+    });
+    requestAnimationFrame(draw);
+}
+
+canvas.addEventListener('mousemove', (e) => { const rect = canvas.getBoundingClientRect(); hoverTile.x = Math.floor((e.clientX - rect.left) / size); hoverTile.y = Math.floor((e.clientY - rect.top) / size); });
+canvas.addEventListener('click', (e) => {
+    if (isCalculating) return; const rect = canvas.getBoundingClientRect();
+    const tx = Math.floor((e.clientX - rect.left) / size); const ty = Math.floor((e.clientY - rect.top) / size);
+    const clicked = units.find(u => u.x === tx && u.y === ty);
+    if (currentMode === 'SELECT' && clicked) { activeUnit = clicked; updateUI(); playSound(600, 'sine', 0.05); } 
+    else if (currentMode === 'MOVE' && activeUnit && !clicked) { if (getDist({x:tx, y:ty}, activeUnit) <= activeUnit.spd) { activeUnit.x = tx; activeUnit.y = ty; activeUnit.sp = Math.min(50, activeUnit.sp + 15); setMode('SELECT'); playSound(300, 'triangle', 0.1); } } 
+    else if (activeUnit && (currentMode === 'ATK' || currentMode === 'SPEC')) {
+        let d = getDist({x:tx, y:ty}, activeUnit); let minR = (currentMode === 'ATK') ? activeUnit.minBA : activeUnit.minS; let maxR = (currentMode === 'ATK') ? activeUnit.maxBA : activeUnit.maxS;
+        if (d >= minR && d <= maxR && clicked) { targetTile = {x: tx, y: ty}; isCalculating = true; showCalculation(); }
+    }
+});
+
+window.addEventListener('keydown', (e) => { if (!isCalculating) return; if (e.key.toLowerCase() === 'y') executeAction(); if (e.key.toLowerCase() === 'n') { cancelAction(); playSound(200, 'sine', 0.1); } });
+function getDist(p1, p2) { return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y); }
+function drawOverlay(sx, sy, r, col, center=false) { ctx.fillStyle = col; for(let i=0; i<20; i++) for(let j=0; j<10; j++) { let d = getDist({x:i,y:j}, {x:sx,y:sy}); if(center ? d<=r : (d<=r && d>0)) ctx.fillRect(i*size, j*size, size, size); } }
+function drawIntervalOverlay(sx, sy, min, max, col) { ctx.fillStyle = col; for(let i=0; i<20; i++) for(let j=0; j<10; j++) { let d = getDist({x:i,y:j},{x:sx,y:sy}); if(d>=min && d<=max) ctx.fillRect(i*size,j*size,size,size); }}
+function cancelAction() { isCalculating = false; document.getElementById('battleCalc').style.display = 'none'; document.getElementById('idleMsg').style.display = 'block'; }
+function setMode(m) { if(!activeUnit || activeUnit.done) return; if(m==='SPEC' && activeUnit.sp < 50) return alert("SP Kurang!"); currentMode = m; }
+function setWait() { if(!activeUnit || activeUnit.done) return; activeUnit.sp = Math.min(50, activeUnit.sp + 10); endTurn(); }
+function endTurn() { if(activeUnit) activeUnit.done = true; activeUnit = null; currentMode = 'SELECT'; if(units.filter(u=>u.side===currentPhase).every(u=>u.done)) { currentPhase = currentPhase === 'PLAYER' ? 'ENEMY' : 'PLAYER'; units.forEach(u=>u.done=false); document.getElementById('phaseBanner').innerText = currentPhase + " TURN"; document.getElementById('phaseBanner').className = currentPhase === 'PLAYER' ? 'player-phase' : 'enemy-phase'; } updateUI(); }
+
+function updateUI() {
+    if (!activeUnit) { document.getElementById('uName').innerText = "-"; return; }
+    document.getElementById('avatarImg').src = activeUnit.imgUrl; document.getElementById('uName').innerText = activeUnit.name;
+    document.getElementById('uHp').innerText = activeUnit.hp + "/" + activeUnit.maxHp; document.getElementById('uDef').innerText = activeUnit.def;
+    document.getElementById('uDodge').innerText = activeUnit.dodge + "%"; document.getElementById('uSpd').innerText = activeUnit.spd;
+    document.getElementById('uBA').innerText = activeUnit.minBA + "-" + activeUnit.maxBA; document.getElementById('uBADmg').innerText = activeUnit.atk;
+    document.getElementById('uS').innerText = activeUnit.minS + "-" + activeUnit.maxS; document.getElementById('uSDmg').innerText = activeUnit.sDmg;
+    document.getElementById('uSp').innerText = activeUnit.sp + "/50"; document.getElementById('uAoe').innerText = activeUnit.aoe;
+    const typeTag = document.getElementById('uType'); typeTag.innerText = activeUnit.type; typeTag.style.background = TYPE_COLORS[activeUnit.type];
+}
+
+initDraft(); draw();
+</script>
+</body>
+</html>
